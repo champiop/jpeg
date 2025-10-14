@@ -1,0 +1,6 @@
+lib
+build
+*.ppm
+*.pbm
+*.pgm
+compile_flags.txt
