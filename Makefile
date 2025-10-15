@@ -13,7 +13,7 @@ LIB_DIR      := lib
 SRC        := $(SRC_DIR)/jpeg.c
 OBJ        := $(BUILD_DIR)/jpeg.o
 EXE_NAME   := $(BIN_DIR)/jpeg
-LIB        := $(LIB_DIR)/libnetpbm.a
+LIB        := $(LIB_DIR)/libnetpbm.a -lm
 
 # ==== Default target ====
 all: $(EXE_NAME)
