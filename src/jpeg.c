@@ -12,7 +12,7 @@
 #include <string.h>
 
 // Converts every sample value of a 8x8 mcu from RGB to YCbCr color format
-void rgb_to_ycbcr(uint8_t *mcu_in, uint8_t *mcu_out) {
+void rgb_to_ycbcr(uint16_t *mcu_in, uint8_t *mcu_out) {
   for (int j = 0; j < 8; j++) {
     for (int i = 0; i < 8; i++) {
       uint8_t r = mcu_in[3 * 8 * j + 3 * i + 0];
@@ -22,6 +22,21 @@ void rgb_to_ycbcr(uint8_t *mcu_in, uint8_t *mcu_out) {
       mcu_out[3 * 8 * j + 3 * i + 0] = 0.299 * r + 0.587 * g + 0.114 * b;
       mcu_out[3 * 8 * j + 3 * i + 1] = -0.167 * r - 0.3313 * g - 0.5 * b + 128;
       mcu_out[3 * 8 * j + 3 * i + 2] = 0.5 * r - 0.4187 * g - 0.0813 * b + 128;
+    }
+  }
+}
+
+// Substracts 128 from each sample value of a 8x8 mcu
+void offset(uint8_t *mcu_in, int8_t *mcu_out) {
+  for (int j = 0; j < 8; j++) {
+    for (int i = 0; i < 8; i++) {
+      uint8_t r = mcu_in[3 * 8 * j + 3 * i + 0];
+      uint8_t g = mcu_in[3 * 8 * j + 3 * i + 1];
+      uint8_t b = mcu_in[3 * 8 * j + 3 * i + 2];
+
+      mcu_out[3 * 8 * j + 3 * i + 0] = r - 128;
+      mcu_out[3 * 8 * j + 3 * i + 1] = g - 128;
+      mcu_out[3 * 8 * j + 3 * i + 2] = b - 128;
     }
   }
 }
@@ -50,11 +65,41 @@ void dct(int8_t *mcu_in, double *mcu_out) {
   }
 }
 
-void display(uint16_t *mcu, int stride) {
+void display_uint8(uint8_t *mcu, int stride) {
+  for (int j = 0; j < 8; j++) {
+    for (int i = 0; i < 8; i++) {
+      printf(" ");
+      printf("%02x ", mcu[3 * 8 * j + 3 * i + stride]);
+    }
+    printf("\n\n");
+  }
+}
+
+void display_int8(int8_t *mcu, int stride) {
+  for (int j = 0; j < 8; j++) {
+    for (int i = 0; i < 8; i++) {
+      printf(" ");
+      printf("%02x ", mcu[3 * 8 * j + 3 * i + stride]);
+    }
+    printf("\n\n");
+  }
+}
+
+void display_uint16(uint16_t *mcu, int stride) {
   for (int j = 0; j < 8; j++) {
     for (int i = 0; i < 8; i++) {
       printf(" ");
       printf("%04x ", mcu[3 * 8 * j + 3 * i + stride]);
+    }
+    printf("\n\n");
+  }
+}
+
+void display_double(double *mcu, int stride) {
+  for (int j = 0; j < 8; j++) {
+    for (int i = 0; i < 8; i++) {
+      printf(" ");
+      printf("%02e ", mcu[3 * 8 * j + 3 * i + stride]);
     }
     printf("\n\n");
   }
@@ -76,38 +121,57 @@ int main(void) {
   size_t w = netpbm_get_width(image);
   size_t h = netpbm_get_height(image);
 
-  uint16_t *data = malloc(3 * w * h * sizeof(uint16_t));
+  uint16_t *mcu_rgb = malloc(3 * 8 * 8 * sizeof(uint16_t));
+  netpbm_clone_data(image, mcu_rgb);
+  netpbm_destroy(image);
 
-  netpbm_clone_data(image, data);
   printf("---- Initial data -----------------------------------------\n");
   printf("Channel R:\n");
-  display(data, 0);
+  display_uint16(mcu_rgb, 0);
   printf("Channel G:\n");
-  display(data, 1);
+  display_uint16(mcu_rgb, 1);
   printf("Channel B:\n");
-  display(data, 2);
+  display_uint16(mcu_rgb, 2);
   printf("-----------------------------------------------------------\n");
 
-  rgb_to_ycbcr(data);
+  uint8_t *mcu_ycbcr = malloc(3 * 8 * 8 * sizeof(uint8_t));
+  rgb_to_ycbcr(mcu_rgb, mcu_ycbcr);
+  free(mcu_rgb);
+
   printf("---- Conversion -------------------------------------------\n");
   printf("Channel Y:\n");
-  display(data, 0);
+  display_uint8(mcu_ycbcr, 0);
   printf("Channel Cb:\n");
-  display(data, 1);
+  display_uint8(mcu_ycbcr, 1);
   printf("Channel Cr:\n");
-  display(data, 2);
+  display_uint8(mcu_ycbcr, 2);
   printf("-----------------------------------------------------------\n");
 
-  dct(data);
+  int8_t *mcu_offset = malloc(3 * 8 * 8 * sizeof(int8_t));
+  offset(mcu_ycbcr, mcu_offset);
+  free(mcu_ycbcr);
+
+  printf("---- Offset -----------------------------------------------\n");
+  printf("Channel Y:\n");
+  display_int8(mcu_offset, 0);
+  printf("Channel Cb:\n");
+  display_int8(mcu_offset, 1);
+  printf("Channel Cr:\n");
+  display_int8(mcu_offset, 2);
+  printf("-----------------------------------------------------------\n");
+
+  double *mcu_dct = malloc(3 * 8 * 8 * sizeof(double));
+  dct(mcu_offset, mcu_dct);
+  free(mcu_offset);
+
   printf("---- DCT --------------------------------------------------\n");
   printf("Channel Y:\n");
-  display(data, 0);
+  display_double(mcu_dct, 0);
   printf("Channel Cb:\n");
-  display(data, 1);
+  display_double(mcu_dct, 1);
   printf("Channel Cr:\n");
-  display(data, 2);
+  display_double(mcu_dct, 2);
   printf("-----------------------------------------------------------\n");
 
-  netpbm_destroy(image);
   return EXIT_SUCCESS;
 }
