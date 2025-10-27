@@ -65,6 +65,23 @@ void dct(int8_t *mcu_in, double *mcu_out) {
   }
 }
 
+// Reorders data samples in a "zig-zag" way
+void zigzag(double *mcu_in, double *mcu_out) {
+  int spatial_to_zigzag[8][8] = {
+      {0, 1, 5, 6, 14, 15, 27, 28},     {2, 4, 7, 13, 16, 26, 29, 42},
+      {3, 8, 12, 17, 25, 30, 41, 43},   {9, 11, 18, 24, 31, 40, 44, 53},
+      {10, 19, 23, 32, 39, 45, 52, 54}, {20, 22, 33, 38, 46, 51, 55, 60},
+      {21, 34, 37, 47, 50, 56, 59, 61}, {35, 36, 48, 49, 57, 58, 62, 63}};
+
+  for (int j = 0; j < 8; j++) {
+    for (int i = 0; i < 8; i++) {
+      mcu_out[3 * spatial_to_zigzag[j][i] + 0] = mcu_in[3 * 8 * j + 3 * i + 0];
+      mcu_out[3 * spatial_to_zigzag[j][i] + 1] = mcu_in[3 * 8 * j + 3 * i + 1];
+      mcu_out[3 * spatial_to_zigzag[j][i] + 2] = mcu_in[3 * 8 * j + 3 * i + 2];
+    }
+  }
+}
+
 void display_uint8(uint8_t *mcu, int stride) {
   for (int j = 0; j < 8; j++) {
     for (int i = 0; i < 8; i++) {
@@ -171,6 +188,19 @@ int main(void) {
   display_double(mcu_dct, 1);
   printf("Channel Cr:\n");
   display_double(mcu_dct, 2);
+  printf("-----------------------------------------------------------\n");
+
+  double *mcu_zigzag = malloc(3 * 8 * 8 * sizeof(double));
+  zigzag(mcu_dct, mcu_zigzag);
+  free(mcu_dct);
+
+  printf("---- Zig-Zag ----------------------------------------------\n");
+  printf("Channel Y:\n");
+  display_double(mcu_zigzag, 0);
+  printf("Channel Cb:\n");
+  display_double(mcu_zigzag, 1);
+  printf("Channel Cr:\n");
+  display_double(mcu_zigzag, 2);
   printf("-----------------------------------------------------------\n");
 
   return EXIT_SUCCESS;
