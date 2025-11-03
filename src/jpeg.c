@@ -118,6 +118,118 @@ void quantize(int16_t *mcu_in, int16_t *mcu_out) {
   }
 }
 
+// Write appx section to file
+void write_appx(FILE *file) {
+  // APP0
+  fputc(0xff, file);
+  fputc(0xe0, file);
+
+  // Length
+  fputc(0x00, file);
+  fputc(0x10, file);
+
+  // "JFIF"
+  fputc('J', file);
+  fputc('F', file);
+  fputc('I', file);
+  fputc('F', file);
+  fputc('\0', file);
+
+  // Version
+  fputc(0x01, file);
+  fputc(0x01, file);
+
+  // JFIF metadata (zero)
+  fputc(0x00, file);
+  fputc(0x00, file);
+  fputc(0x00, file);
+  fputc(0x00, file);
+  fputc(0x00, file);
+  fputc(0x00, file);
+  fputc(0x00, file);
+}
+
+// Write dqt section to file
+void write_dqt(FILE *file, uint16_t *quantization_table) {
+  static int id = 0;
+
+  // DQT
+  fputc(0xff, file);
+  fputc(0xdb, file);
+
+  // Length
+  fputc(0x00, file);
+  fputc(0x43, file);
+
+  // Precision + table id
+  fputc(id++, file);
+
+  // Values
+  for (int j = 0; j < 8; j++) {
+    for (int i = 0; i < 8; i++) {
+      fputc(quantization_table[spatial_to_zigzag[j][i]], file);
+    }
+  }
+}
+
+// Write sofx section to file
+void write_sofx(FILE *file, size_t width, size_t height) {
+  // SOF0
+  fputc(0xff, file);
+  fputc(0xc0, file);
+
+  // Length
+  fputc(0x00, file);
+  fputc(0x11, file);
+
+  // Precision
+  fputc(0x08, file);
+
+  // Image height
+  fputc((height >> 8) & 0xff, file);
+  fputc(height & 0xff, file);
+
+  // Image width
+  fputc((width >> 8) & 0xff, file);
+  fputc(width & 0xff, file);
+
+  // Components
+  fputc(0x03, file);
+
+  // Component Y
+  fputc(0x00, file); // Component id
+  fputc(0x11, file); // Sampling factors
+  fputc(0x00, file); // Quantification table id
+
+  // Component Cb
+  fputc(0x01, file); // Component id
+  fputc(0x11, file); // Sampling factors
+  fputc(0x01, file); // Quantification table id
+
+  // Component Cr
+  fputc(0x02, file); // Component id
+  fputc(0x11, file); // Sampling factors
+  fputc(0x01, file); // Quantification table id
+}
+
+// Write the JFIF image into the file
+void write_image(FILE *file) {
+  // Start of image
+  fputc(0xff, file);
+  fputc(0xd8, file);
+
+  // Application data
+  write_appx(file);
+
+  // Define quantization table
+  write_dqt(file, quantization_table_y);
+  write_dqt(file, quantization_table_cbcr);
+
+  // End of image
+  fputc(0xff, file);
+  fputc(0xd9, file);
+}
+
 void display_uint8(uint8_t *mcu, int stride) {
   for (int j = 0; j < 8; j++) {
     for (int i = 0; i < 8; i++) {
